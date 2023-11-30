@@ -18,15 +18,21 @@ class Program
         // Simuler scanning af varer med et delay på 500 ms mellem hver vare
         scanner.ScanItem('A');
         Thread.Sleep(500);
+        scanner.ScanItem('A');
+        Thread.Sleep(500);
+        scanner.ScanItem('A');
+        Thread.Sleep(500);
+        scanner.ScanItem('B');
+        Thread.Sleep(500);
         scanner.ScanItem('B');
         Thread.Sleep(500);
         scanner.ScanItem('B');
         Thread.Sleep(500);
         scanner.ScanItem('R'); // Multipack af 'F'
         Thread.Sleep(500);
-        scanner.ScanItem('Z'); // Pantvare
-        Thread.Sleep(500);
         scanner.ScanItem('C');
+        Thread.Sleep(500);
+        scanner.ScanItem('Z'); // Pantvare
         Thread.Sleep(500);
 
         Console.WriteLine("Billig pris: " + cheapCalculator.TotalPrice);
@@ -122,6 +128,7 @@ public class CheapPriceCalculator : IPriceCalculator
 // Klasse for dyr prisberegner
 public class ExpensivePriceCalculator : IPriceCalculator
 {
+    private Dictionary<char, int> itemCounts = new Dictionary<char, int>();
     private List<Item> soldItems = new List<Item>();
 
     public decimal TotalPrice
@@ -134,6 +141,24 @@ public class ExpensivePriceCalculator : IPriceCalculator
         // Simpelt: Gem den solgte vare med pris og antal
         char itemCode = (char)sender; // Assuming sender is char in this case
         int groupNumber = 1;
+
+        // Check if the item has been scanned before
+        if (itemCounts.ContainsKey(itemCode))
+        {
+            itemCounts[itemCode]++;
+        }
+        else
+        {
+            itemCounts[itemCode] = 1;
+        }
+
+        // Apply discount for 'A' if scanned 3 times
+        if (itemCode == 'A' && itemCounts[itemCode] == 3)
+        {
+            e.TotalPrice = 0m; // buy 3 get one free
+        }
+
+        
 
         if (itemCode == 'Z')
         {
@@ -168,8 +193,21 @@ public class ExpensivePriceCalculator : IPriceCalculator
                                      })
                                      .OrderBy(item => item.Code).ThenBy(item => item.groupNumber);
 
+        
+
         foreach (var item in groupedItems)
         {
+            if (item.Code == 'B' && item.TotalQuantity == 3)
+            {
+                decimal tempPrince = item.TotalPrice;
+                tempPrince = tempPrince * 0.5m;
+                Console.WriteLine($"Vare: {item.Code}, Antal: {item.TotalQuantity}, Pris: {tempPrince} 50% Discount, Gruppe: {item.groupNumber}");
+            }
+            else if (item.Code == 'A' && item.TotalQuantity == 3)
+            {
+                Console.WriteLine($"Vare: {item.Code}, Antal: {item.TotalQuantity}, Pris: {item.TotalPrice} Buy 3, get 1 free, Gruppe: {item.groupNumber}");
+
+            } else
             Console.WriteLine($"Vare: {item.Code}, Antal: {item.TotalQuantity}, Pris: {item.TotalPrice}, Gruppe: {item.groupNumber}");
         }
     }
