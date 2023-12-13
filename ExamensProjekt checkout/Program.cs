@@ -15,6 +15,7 @@ class Program
         scanner.PriceCalculated += cheapCalculator.OnPriceCalculated;
         scanner.PriceCalculated += expensiveCalculator.OnPriceCalculated;
 
+        /*
         // Simuler scanning af varer med et delay på 500 ms mellem hver vare
         scanner.ScanItem('A');
         Thread.Sleep(500);
@@ -34,11 +35,39 @@ class Program
         Thread.Sleep(500);
         scanner.ScanItem('Z'); // Pantvare
         Thread.Sleep(500);
+        */
+        
+        Console.WriteLine("Scanner is ready. Type 'stop' to stop.");
+
+        // tjek for 'exit'
+        while (true)
+        {
+            Console.Write("Enter item code: ");
+            String userInput = Console.ReadLine().Trim();
+            // Tjek efter exit parameter
+            if (userInput.ToLower() == "stop")
+            {
+                break;
+            }
+    
+            userInput = userInput.Substring(0, 1);
+            char input = char.Parse(userInput);
+            input = char.ToUpper(input);
+           
+            scanner.ScanItem(input);
+
+            if (input == 'Z')
+            {
+                scanner.ScanItem('P');
+            }
+                                    
+        }
+
 
         Console.WriteLine("Billig pris: " + cheapCalculator.TotalPrice);
         Console.WriteLine("Dyr pris:");
         expensiveCalculator.DisplaySoldItems();
-    }
+        
 }
 
 // Delegate til event
@@ -62,8 +91,9 @@ public class Item
 // Klasse for at repræsentere en scanner
 public class Scanner
 {
-    // Event til at udsende når en pris er blevet beregnet
-    public event PriceCalculatedEventHandler PriceCalculated;
+
+        // Event til at udsende når en pris er blevet beregnet
+        public event PriceCalculatedEventHandler PriceCalculated;
 
     public void ScanItem(char itemCode)
     {
@@ -72,6 +102,7 @@ public class Scanner
 
         // Udsend event med den beregnede pris
         OnPriceCalculated(itemCode, new PriceCalculatedEventArgs { TotalPrice = price });
+        
     }
 
     protected virtual void OnPriceCalculated(char itemCode, PriceCalculatedEventArgs e)
@@ -89,6 +120,8 @@ public class Scanner
                 return 10.0m;
             case 'B':
                 return 5.0m;
+            case 'F':
+                return 8.0m;
             case 'R':
                 return 25.0m; // Prisen for multipack af 'F'
             case 'Z':
@@ -125,90 +158,93 @@ public class CheapPriceCalculator : IPriceCalculator
     }
 }
 
-// Klasse for dyr prisberegner
-public class ExpensivePriceCalculator : IPriceCalculator
-{
-    private Dictionary<char, int> itemCounts = new Dictionary<char, int>();
-    private List<Item> soldItems = new List<Item>();
-
-    public decimal TotalPrice
+    // Klasse for dyr prisberegner
+    public class ExpensivePriceCalculator : IPriceCalculator
     {
-        get { return soldItems.Sum(item => item.Price * item.Quantity); }
-    }
+        private Dictionary<char, int> itemCounts = new Dictionary<char, int>();
+        private List<Item> soldItems = new List<Item>();
 
-    public void OnPriceCalculated(object sender, PriceCalculatedEventArgs e)
-    {
-        // Simpelt: Gem den solgte vare med pris og antal
-        char itemCode = (char)sender; // Assuming sender is char in this case
-        int groupNumber = 1;
-
-        // Check if the item has been scanned before
-        if (itemCounts.ContainsKey(itemCode))
+        public decimal TotalPrice
         {
-            itemCounts[itemCode]++;
-        }
-        else
-        {
-            itemCounts[itemCode] = 1;
+            get { return soldItems.Sum(item => item.Price * item.Quantity); }
         }
 
-        // Apply discount for 'A' if scanned 3 times
-        if (itemCode == 'A' && itemCounts[itemCode] == 3)
+        public void OnPriceCalculated(object sender, PriceCalculatedEventArgs e)
         {
-            e.TotalPrice = 0m; // buy 3 get one free
-        }
+            // Simpelt: Gem den solgte vare med pris og antal
+            char itemCode = (char)sender; 
+            int groupNumber = 1;
 
-        
-
-        if (itemCode == 'Z')
-        {
-            groupNumber = 2;
-            // Handle 'Z' as a pant item
-            //soldItems.Add(new Item { Code = 'Z', Price = 10.0m, Quantity = 1, Group = 1 });
-            // Also handle 'P' as the pant price
-            soldItems.Add(new Item { Code = 'P', Price = 1.0m, Quantity = 1, Group = groupNumber });
-        }
-        else if (itemCode == 'A' || itemCode == 'B')
-        {
-            // Handle other items normally
-            groupNumber = 3;
-
-        }
-        else { }
-
-        soldItems.Add(new Item { Code = itemCode, Price = e.TotalPrice, Quantity = 1, Group = groupNumber });
-
-    }
-
-    public void DisplaySoldItems()
-    {
-        // Grupper og sorter solgte varer og vis dem
-        var groupedItems = soldItems.GroupBy(item => item.Code)
-                                     .Select(group => new
-                                     {
-                                         Code = group.Key,
-                                         TotalQuantity = group.Sum(item => item.Quantity),
-                                         TotalPrice = group.Sum(item => item.Price * item.Quantity),
-                                         groupNumber = group.First().Group
-                                     })
-                                     .OrderBy(item => item.Code).ThenBy(item => item.groupNumber);
-
-        
-
-        foreach (var item in groupedItems)
-        {
-            if (item.Code == 'B' && item.TotalQuantity == 3)
+            // Tjek om vi har scannet denne vare allerede
+            if (itemCounts.ContainsKey(itemCode))
             {
-                decimal tempPrince = item.TotalPrice;
-                tempPrince = tempPrince * 0.5m;
-                Console.WriteLine($"Vare: {item.Code}, Antal: {item.TotalQuantity}, Pris: {tempPrince} 50% Discount, Gruppe: {item.groupNumber}");
+                itemCounts[itemCode]++;
             }
-            else if (item.Code == 'A' && item.TotalQuantity == 3)
+            else
             {
-                Console.WriteLine($"Vare: {item.Code}, Antal: {item.TotalQuantity}, Pris: {item.TotalPrice} Buy 3, get 1 free, Gruppe: {item.groupNumber}");
+                itemCounts[itemCode] = 1;
+            }
+            
+            // tilføj rabat for køb ved 3 x A
+            if (itemCode == 'A' && itemCounts[itemCode] == 3)
+            {
+                e.TotalPrice = 0m; // buy 3 get one free
+                itemCounts[itemCode] = 0;
+            }
+                       
+            if (itemCode == 'A' || itemCode == 'B')
+            {
+                // håndtering ikke pant ting
+                groupNumber = 3;
+            }            
 
-            } else
-            Console.WriteLine($"Vare: {item.Code}, Antal: {item.TotalQuantity}, Pris: {item.TotalPrice}, Gruppe: {item.groupNumber}");
+            soldItems.Add(new Item { Code = itemCode, Price = e.TotalPrice, Quantity = 1, Group = groupNumber });
+
         }
+
+        public void DisplaySoldItems()
+        {
+            // Grupper og sorter solgte varer og vis dem
+            var groupedItems = soldItems.GroupBy(item => item.Code)
+                                         .Select(group => new
+                                         {
+                                             Code = group.Key,
+                                             TotalQuantity = group.Sum(item => item.Quantity),
+                                             TotalPrice = group.Sum(item => item.Price * item.Quantity),
+                                             groupNumber = group.First().Group
+                                         })
+                                         .OrderBy(item => item.Code).ThenBy(item => item.groupNumber);
+            
+            double calcPrice = 0;
+
+            foreach (var item in groupedItems)
+            {
+                Thread.Sleep(750);
+                if (item.Code == 'B')
+                {
+                    int numberOfSetsOfThree = item.TotalQuantity / 3;
+
+                    double itemPrice = (double)(item.TotalPrice/item.TotalQuantity);
+
+                    double totalPriceWithDiscount = ((numberOfSetsOfThree * 3 * itemPrice) * 0.5) + ((item.TotalQuantity % 3) * itemPrice);
+
+                    Console.WriteLine($"Vare: {item.Code}, Antal: {item.TotalQuantity}, Pris: {totalPriceWithDiscount} 50% Discount per group of 3 items, Gruppe: {item.groupNumber}");
+                    calcPrice += totalPriceWithDiscount;
+
+                   
+                }
+                else if (item.Code == 'A' && item.TotalQuantity >= 3)
+                {
+                    Console.WriteLine($"Vare: {item.Code}, Antal: {item.TotalQuantity}, Pris: {item.TotalPrice} Buy 3, get 1 free, Gruppe: {item.groupNumber}");
+                    calcPrice += (double)item.TotalPrice;
+                }
+                else
+                {
+                    Console.WriteLine($"Vare: {item.Code}, Antal: {item.TotalQuantity}, Pris: {item.TotalPrice}, Gruppe: {item.groupNumber}");
+                    calcPrice += (double)item.TotalPrice;
+                }
+            }
+            Console.WriteLine("Total price: " + calcPrice);
+        } 
     }
 }
